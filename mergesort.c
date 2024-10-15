@@ -5,6 +5,6 @@
 
 int main(int argc, char const *argv[]) // argv[1] = num de nucleos, os demais são os arquivos de numeros, argv[argc] = nome do arquivo de saida
 {
-    /* code */
+    printf("Teste");
     return 0;
 }
