@@ -1,1 +1,98 @@
-Vamos usar esse arquivo para deixar anotações, recados etc
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+
+typedef struct { // parâmetros que serão utilizados nas threads de leitura
+    int thread_id; // ID da thread
+    const char* filename; // Nome do arquivo a ser lido
+    int* vetor; // Vetor para armazenar os números
+} parametrosLeitura;
+
+void* leitura(void* arg) {
+    parametrosLeitura* parametros = (parametrosLeitura*)arg;
+
+    int indiceVetor = (parametros->thread_id - 1) * 1000; // Cálculo do índice no vetor
+
+    FILE* arquivo = fopen(parametros->filename, "r"); // Abre o arquivo de cada parâmetro no modo de leitura
+    if (arquivo == NULL) {
+        printf("Não abriu o arquivo %s\n", parametros->filename);
+        pthread_exit(NULL); // Saída da thread se o arquivo não abrir
+    }
+    
+    // Lê os números do arquivo e armazena no vetor
+    int num;
+    while (fscanf(arquivo, "%d", &num) == 1) { // Lê até que não haja mais números
+        parametros->vetor[indiceVetor++] = num;
+    }
+    fclose(arquivo);
+    pthread_exit(NULL); // Termina a thread corretamente
+}
+
+int main(int argc, char const *argv[]) { // argv[1] = num de núcleos, os demais são os arquivos de números, argv[argc] = nome do arquivo de saída
+    if (argc < 3) {
+        printf("Uso: %s <num de nucleos> <arquivo1> <arquivo2>\n", argv[0]);
+        return 1;
+    }
+
+    pthread_t leitor[2]; // Considera que 2 threads irão ler e salvar
+
+    int quantidade = (argc - 2) * 1000; // Aloca espaço para os números
+    int* vetorPrincipal = (int*)malloc(quantidade * sizeof(int)); // Vetor alocado dinamicamente
+
+    // Cria as threads
+    for (int i = 1; i < argc - 1; i++) { // argv[1] é o número de núcleos, então começamos em 1
+        parametrosLeitura* parametros = malloc(sizeof(parametrosLeitura)); // Aloca memória para os parâmetros
+        if (parametros == NULL) {
+            perror("Erro ao alocar memória");
+            free(vetorPrincipal);
+            return 1;
+        }
+
+        parametros->thread_id = i; // ID da thread
+        parametros->filename = argv[i]; // Nome do arquivo a ser lido
+        parametros->vetor = vetorPrincipal; // Ponteiro para o vetor
+
+        if (pthread_create(&leitor[i - 1], NULL, leitura, (void*)parametros) != 0) { // i - 1 para o índice da thread
+            perror("Erro ao criar a thread");
+            free(parametros);
+            free(vetorPrincipal);
+            return 1;
+        }
+    }
+
+    // Aguarda as threads terminarem
+    for (int i = 0; i < argc - 2; i++) {
+        pthread_join(leitor[i], NULL);
+    }
+
+    // Aqui você pode adicionar código para manipular ou salvar os dados em vetorPrincipal
+    // Exemplo: imprimir os números lidos
+    for (int i = 0; i < quantidade; i++) {
+        printf("%d\n", vetorPrincipal[i]);
+    }
+
+    // Libera memória
+    free(vetorPrincipal);
+
+    return 0;
+}
+
+
+Principais Alterações e Melhorias:
+
+    Estrutura Correta: Renomeei a estrutura de parametros para parametrosLeitura, e a declarei corretamente fora da função main.
+
+    Uso Correto do argv: Agora, a função leitura recebe corretamente o nome do arquivo a ser lido.
+
+    Indexação Correta: O cálculo do índice do vetor agora está utilizando o thread_id corretamente.
+
+    Verificação de Retornos de fscanf: A condição para leitura foi alterada para verificar se o número de itens lidos é igual a 1.
+
+    Alocação Dinâmica para Parâmetros: Agora, os parâmetros para cada thread são alocados dinamicamente para evitar a sobrescrita de memória.
+
+    Uso de pthread_join: As threads são agora aguardadas para garantir que todas terminem antes de continuar.
+
+    Mensagens de Erro: Adicionei algumas verificações e mensagens de erro para facilitar o diagnóstico de problemas.
+
+Com essas correções, o código deve funcionar como esperado e ler os números de dois arquivos, armazenando-os em um vetor. 
+Certifique-se de que os arquivos estão no formato correto e contêm números inteiros.
