@@ -1,28 +1,24 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-int main(int argc, char const *argv[]) // argc = numero de parametros passados na execução. argv[] os parametros ordenados no vetor
+
+int main() // argv[1] = num de nucleos, os demais são os arquivos de numeros, argv[argc] = nome do arquivo de saida
 {
-    int numLido[argc]; 
+    FILE* arquivo = fopen("nums1.txt", "r");
 
-    for (int i = 1; i <= argc; i++){ // começa com 1 pq argc[0] é o nome do arquivo
-        FILE* arquivo = fopen(argv[i], "r");
-
-        if (arquivo == NULL){
-            continue;
-        }
-        
-        fscanf(arquivo, "%d", &numLido[i]); // le o primeiro numero do arquivo e salva num vetor
+    if (fseek(arquivo, (974 * sizeof(int)), SEEK_SET) != 0) {
+        perror("Erro ao mover o ponteiro do arquivo");
         fclose(arquivo);
+        return 1;
     }
 
-    FILE* saida = fopen("saida.txt", "w+");//w+ = se n tiver, cria o arquivo
+    int num;
 
-    for (int i = 1; i < argc; i++){
-        fprintf(saida, "%d ", numLido[i]);// imprime o primeiro numero de cada arquivo digitado
-    }
+    fscanf(arquivo, "%d", &num);
+    fclose(arquivo);
 
-    fclose(saida);
-    
+    printf("num: %d \n", num);
     return 0;
+    
 }
