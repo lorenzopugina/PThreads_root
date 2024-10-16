@@ -1,24 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include <string.h>
+#include <semaphore.h>
 
-
-int main() // argv[1] = num de nucleos, os demais são os arquivos de numeros, argv[argc] = nome do arquivo de saida
+int main(int argc, char const *argv[]) // argv[1] = num de nucleos, os demais são os arquivos de numeros, argv[argc] = nome do arquivo de saida
 {
-    FILE* arquivo = fopen("nums1.txt", "r");
+    FILE* arquivo = fopen("teste.txt", "r");
 
-    if (fseek(arquivo, (974 * sizeof(int)), SEEK_SET) != 0) {
-        perror("Erro ao mover o ponteiro do arquivo");
-        fclose(arquivo);
-        return 1;
+
+    for (int i = 0; i < 20; i++)
+    {
+       int num;
+        fscanf(arquivo, "%d", &num);
+        printf("LIdo\n");
+        long pos = ftell(arquivo);
+        printf("Posição atual do ponteiro: %ld\n", pos);
     }
 
-    int num;
-
-    fscanf(arquivo, "%d", &num);
-    fclose(arquivo);
-
-    printf("num: %d \n", num);
+    
+    
     return 0;
     
 }
