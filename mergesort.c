@@ -17,7 +17,6 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
 int vez = 0; // vez de acesso decada thread
 
-
 void* leitura(void* arg);
 
 int main(int argc, char const *argv[]) // argv[1] = num de nucleos, os demais são os arquivos de numeros, argv[argc] = nome do arquivo de saida
@@ -29,8 +28,8 @@ int main(int argc, char const *argv[]) // argv[1] = num de nucleos, os demais s�
     int* vetorPrincipal = (int*)malloc(quantidade * sizeof(int)); // vetor alocado dinamicamente com o tamanho para cada arquivo q for abrir
 
     for (int j = 2; j < argc-1; j++){ // argc conta a execução(nome) do arquivo como parametro, porem argv começa no 0 cuidado
-        pos = 0;
-        vez = 0;
+        pos = 0; // retorna o ponteiro para o começo do arquivo
+        vez = 0; // a primeira thread a ler será a 0
 
         for (int i = 0; i < numThreads; i++){
             parametrosLeitura* parametros = malloc(sizeof(parametrosLeitura)); // aloca memoria para os parametros
@@ -42,10 +41,8 @@ int main(int argc, char const *argv[]) // argv[1] = num de nucleos, os demais s�
             parametros->arquivo = strdup(argv[j]); // Arquivo q vai ler
             parametros->vetor = vetorPrincipal; // Ponteiro para o vetor
             parametros->indiceComeço = (1000 / numThreads) * i;
-            parametros->indiceFinal = ((1000 / numThreads) * (i + 1)) - 1; // Última thread lê até o fim
-            parametros->indiceFinal = (i == numThreads - 1) ? (quantidade - 1) : (((1000 / numThreads) * (i + 1)) - 1);
-
-            parametros->numArquivo = j-2;
+            parametros->indiceFinal = ((1000 / numThreads) * (i + 1)) - 1; 
+            parametros->numArquivo = j-2; // numero de arquivos para se ler
             
             if (pthread_create(&leitor[i], NULL, leitura, (void*)parametros) != 0) { // i - 1 para o índice da thread pq começa no 0
                 printf("Erro ao criar a thread");
@@ -55,14 +52,13 @@ int main(int argc, char const *argv[]) // argv[1] = num de nucleos, os demais s�
                 return 1;
             }
         }
-            
+        
         for (int i = 0; i < numThreads; i++) { // esperar terminar antes de trocar de arquivo, precisa por causa da posição
             pthread_join(leitor[i], NULL);
         }
     }
 
     // ---------------------------------------------------------- Imprime em um arquivo separado o resultado final, indica q o vetor deu certo
-
     FILE* saida = fopen(argv[argc-1], "w+");
 
     int quebraLinha = 0;
@@ -74,34 +70,26 @@ int main(int argc, char const *argv[]) // argv[1] = num de nucleos, os demais s�
             fprintf(saida, "\n");
             quebraLinha = 0;
         }
-        
     }
-
     fclose(saida);
-    free(vetorPrincipal);
-    
+    free(vetorPrincipal); // nao esquecer dele dps
     return 0;
 }
 
 void* leitura(void* arg){
 
     parametrosLeitura* parametros = (parametrosLeitura*)arg;
+    FILE* arquivo = fopen(parametros->arquivo, "r"); // abre o arquivo de cada parametro no modo de leitura binária, pq ta dando B.O o modo normal
+    if (arquivo == NULL){
+        printf("Não abriu o arquivo %s\n", parametros->arquivo);
+        free(parametros->arquivo); // Liberar memória alocada
+        free(parametros); // Liberar parâmetros da thread
+        pthread_exit(NULL); // Finaliza a thread
+    }
 
     pthread_mutex_lock(&mutex);
     while (parametros->idThread != vez){ // aguarda sua vez
         pthread_cond_wait(&cond, &mutex);
-    }
-
-    FILE* arquivo = fopen(parametros->arquivo, "r"); // abre o arquivo de cada parametro no modo de leitura binária, pq ta dando B.O o modo normal
-    if (arquivo == NULL){
-        printf("Não abriu o arquivo %s\n", parametros->arquivo);
-        pthread_cond_broadcast(&cond); // acorda a thread para verificarem sua condição
-        pthread_mutex_unlock(&mutex);
-
-        free(parametros->arquivo); // Liberar memória alocada
-        free(parametros); // Liberar parâmetros da thread
-        pthread_exit(NULL); // Finaliza a thread
-        return NULL;
     }
 
     fseek(arquivo, pos, SEEK_SET);
@@ -116,14 +104,13 @@ void* leitura(void* arg){
             printf("Posicao requeria do vetor: %d\n", (i+(parametros->numArquivo * 1000)));
             break;
         }
-
     }
 
-    pos = ftell(arquivo); // guarda a posição do ponteiro 
+    pos = ftell(arquivo); // guarda a posição atual do ponteiro 
     fclose(arquivo);
-    vez++;
+    vez++; // libera a proxima thread trabalhar
     pthread_cond_broadcast(&cond); // acorda a thread para verificarem sua condição
-    pthread_mutex_unlock(&mutex);
+    pthread_mutex_unlock(&mutex); // desbloqueia o acesso
 
     free(parametros->arquivo); // Liberar memória alocada
     free(parametros); // Liberar parâmetros da thread
