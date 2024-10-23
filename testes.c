@@ -1,72 +1,96 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
-void mergesort(int *v, int n);
-void sort(int *v, int *c, int i, int f);
-void merge(int *v, int *c, int i, int m, int f);
+#define MAX_THREADS 4  // Definir o número máximo de threads
 
-int main (void) {
-  int i;
-  int v[8] = { -1, 7, -3, 11, 4, -2, 4, 8 };
+typedef struct {
+    int Indicecomeco;
+    int Indicefinal;
+    int *vetor;
+} parametros_mergesort;
 
-  mergesort(v, 8);
+void intercala(int Indicecomeco, int meio, int Indicefinal, int vetor[])
+{
+    int *vetorAUX = malloc((Indicefinal - Indicecomeco) * sizeof(int));
+    int comeco = Indicecomeco, metade = meio, contador = 0;
 
-  for (i = 0; i < 8; i++) 
-    printf("%d ", v[i]);
+    while (comeco < meio && metade < Indicefinal) {
+        if (vetor[comeco] <= vetor[metade])
+            vetorAUX[contador++] = vetor[comeco++];
+        else
+            vetorAUX[contador++] = vetor[metade++];
+    }
+    while (comeco < meio)
+        vetorAUX[contador++] = vetor[comeco++];
+    while (metade < Indicefinal)
+        vetorAUX[contador++] = vetor[metade++];
 
-  putchar('\n');
+    for (comeco = Indicecomeco; comeco < Indicefinal; ++comeco)
+        vetor[comeco] = vetorAUX[comeco - Indicecomeco];
 
-  return 0;
+    free(vetorAUX);
 }
 
-/*
-  Dado um vetor de inteiros v e um inteiro n >= 0, ordena o vetor v[0..n-1] em ordem crescente.
-*/
-void mergesort(int *v, int n) {
-  int *c = malloc(sizeof(int) * n);
-  sort(v, c, 0, n - 1);
-  free(c);
+void *mergesort(void *args) {
+    parametros_mergesort *param = (parametros_mergesort *) args;
+    int Indicecomeco = param->Indicecomeco;
+    int Indicefinal = param->Indicefinal;
+    int *vetor = param->vetor;
+
+    if (Indicecomeco < Indicefinal - 1) {
+        int meio = (Indicecomeco + Indicefinal) / 2;
+
+        // Estrutura para armazenar os parâmetros das threads
+        parametros_mergesort arg1 = {Indicecomeco, meio, vetor};
+        parametros_mergesort arg2 = {meio, Indicefinal, vetor};
+
+        // Criação das threads
+        pthread_t thread1, thread2;
+        int num_threads = 0;
+
+        if (num_threads < MAX_THREADS) {
+            pthread_create(&thread1, NULL, mergesort, &arg1);
+            num_threads++;
+        } else {
+            mergesort(&arg1); // Se não puder criar mais threads, chama recursivamente
+        }
+
+        if (num_threads < MAX_THREADS) {
+            pthread_create(&thread2, NULL, mergesort, &arg2);
+            num_threads++;
+        } else {
+            mergesort(&arg2);
+        }
+
+        // Esperar as threads terminarem
+        pthread_join(thread1, NULL);
+        pthread_join(thread2, NULL);
+
+        // Intercala as duas metades
+        intercala(Indicecomeco, meio, Indicefinal, vetor);
+    }
+    return NULL;
 }
 
-/*
-  Dado um vetor de inteiros v e dois inteiros i e f, ordena o vetor v[i..f] em ordem crescente.
-  O vetor c é utilizado internamente durante a ordenação.
-*/
-void sort(int *v, int *c, int i, int f) {
-  if (i >= f) return;
+int main() {
+    int v[] = {15, 8, 9, 3, 1, 4, 7, 6, 10, 2, 12, 11, 5};
+    int n = sizeof(v) / sizeof(v[0]);
 
-  int m = (i + f) / 2;
+    parametros_mergesort args = {0, n, v};
 
-  sort(v, c, i, m);
-  sort(v, c, m + 1, f);
+    // Criação da primeira thread
+    pthread_t initial_thread;
+    pthread_create(&initial_thread, NULL, mergesort, &args);
 
-  /* Se v[m] <= v[m + 1], então v[i..f] já está ordenado. */
-  if (v[m] <= v[m + 1]) return;
+    // Espera a thread principal terminar
+    pthread_join(initial_thread, NULL);
 
-  merge(v, c, i, m, f);
-}
+    // Imprime o vetor ordenado
+    for (int i = 0; i < n; i++) {
+        printf("%d ", v[i]);
+    }
+    printf("\n");
 
-
-/*
-  Dado um vetor v e três inteiros i, m e f, sendo v[i..m] e v[m+1..f] vetores ordenados,
-  coloca os elementos destes vetores, em ordem crescente, no vetor em v[i..f].
-*/
-void merge(int *v, int *c, int i, int m, int f) {
-  int z,
-      iv = i, ic = m + 1;
-
-  for (z = i; z <= f; z++) c[z] = v[z];
-
-  z = i;
-
-  while (iv <= m && ic <= f) {
-    /* Invariante: v[i..z] possui os valores de v[iv..m] e v[ic..f] em ordem crescente. */
-
-    if (c[iv] <= c[ic]) v[z++] = c[iv++];
-    else v[z++] = c[ic++];
-  }
-
-  while (iv <= m) v[z++] = c[iv++];
-
-  while (ic <= f) v[z++] = c[ic++];
+    return 0;
 }
