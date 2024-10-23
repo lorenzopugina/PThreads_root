@@ -1,56 +1,48 @@
-#include <stdio.h>
-#include <stdlib.h>
+void *mergesort(void *args) {
 
-//https://www.ime.usp.br/~pf/algoritmos/aulas/mrgsrt.html#mergesort
+    parametros_mergesort *param = (parametros_mergesort *) args;
+    int Indicecomeco = param->Indicecomeco;
+    int Indicefinal = param->Indicefinal;
+    int *vetor = param->vetor;
 
-void intercala (int Indicecomeco, int meio, int Indicefinal, int vetor[]) 
-{
-    int* vetorAUX = (int*)malloc((Indicefinal-Indicecomeco) * sizeof (int));  
-    int comeco = Indicecomeco;
-    int metade = meio;  
-    int contador = 0;  
+    if (Indicecomeco < Indicefinal - 1) {
+        int meio = (Indicecomeco + Indicefinal) / 2;
 
-    while (comeco < meio && metade < Indicefinal) {  
-        if (vetor[comeco] <= vetor[metade]){
-              vetorAUX[contador++] = vetor[comeco++];  
+        // Armazena os argumentos de cada metade do vetor
+        parametros_mergesort arg1 = {Indicecomeco, meio, vetor};
+        parametros_mergesort arg2 = {meio, Indicefinal, vetor};
+
+        // Criação de threads para cada metade
+        pthread_t thread1, thread2;
+
+        if (numThread < MAX_THREADS) { // cria threads até o limite definido
+            pthread_create(&thread1, NULL, mergesort, &arg1);
+            numThread++;
+            pthread_join(thread1, NULL); // tira isso dps ----------------------------------------------------------------------------------
+        } 
+        else {
+            mergesort(&arg1); // Se ja estiver no limite, continua com a recursividade
         }
-        else  vetorAUX[contador++] = vetor[metade++];  
-    }  
 
-    while (comeco < meio){
-          vetorAUX[contador++] = vetor[comeco++]; 
+        if (numThread < MAX_THREADS) { // mesma coisa só q pra outra metade
+            pthread_create(&thread2, NULL, mergesort, &arg2);
+            numThread++;
+            pthread_join(thread2, NULL); // tira isso deps ---------------------------------------------------------------------------------
+        } 
+        else {
+            mergesort(&arg2);
+        }
+
+        // Espera as threads terminarem
+
+        pthread_join(thread1, NULL);
+        pthread_join(thread2, NULL);
+        
+
+        // Intercala as duas metades
+        intercala(Indicecomeco, meio, Indicefinal, vetor);
     }
 
-    while (metade < Indicefinal){
-          vetorAUX[contador++] = vetor[metade++]; 
-    }
-
-    for (comeco = Indicecomeco; comeco < Indicefinal; ++comeco){//adiciona primeiro
-        vetor[comeco] = vetorAUX[comeco-Indicecomeco];  
-    }  
-
-    free(vetorAUX);  
-}
-
-void mergesort (int Indicecomeco, int Indicefinal, int vetor[])
-{
-   if (Indicecomeco < Indicefinal-1) {  // compara o começo com o final do vetor, enquanto forem diff, são cortados ao meio          
-      int meio = (Indicecomeco + Indicefinal)/2; // o valor será truncado se impar     
-      mergesort (Indicecomeco, meio, vetor); //pega do começo ao meio      
-      mergesort (meio, Indicefinal, vetor);  //pega do meio ao final   
-      intercala (Indicecomeco, meio, Indicefinal, vetor);     
-   }
-}
-
-int main()
-{
-    int v[6]={15, 8, 9, 3, 1, 4};
-
-    mergesort(0, 6, v); // 0 é o começo, 6 é o numElementos, v é o vetor
-
-    for (int i = 0; i < 6; i++){
-        printf("%d ", v[i]);
-    }
-    
-    return 0;
+    numThread--;
+    pthread_exit(NULL);
 }

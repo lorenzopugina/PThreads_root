@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define MAX_THREADS 2 // Definir o número máximo de threads
+#define MAX_THREADS 0 // Definir o número máximo de threads
 
 typedef struct {
     int Indicecomeco;
@@ -10,10 +10,11 @@ typedef struct {
     int *vetor;
 } parametros_mergesort;
 
-int numThread = 0;
-
 void intercala(int Indicecomeco, int meio, int Indicefinal, int vetor[]);
-void *mergesort(void *args);
+void *criaMerges(void *args);
+void mergesorte (int Indicecomeco, int Indicefinal, int vetor[]);
+
+int numThread = 0;
 
 int main() {
 
@@ -32,7 +33,7 @@ int main() {
 
     // Criação da primeira thread
     pthread_t threadInical;
-    pthread_create(&threadInical, NULL, mergesort, &args);
+    pthread_create(&threadInical, NULL, criaMerges, &args);
 
     // Espera a thread principal terminar
     pthread_join(threadInical, NULL);
@@ -48,7 +49,7 @@ int main() {
     return 0;
 }
 
-void *mergesort(void *args) {
+void *criaMerges(void *args) {
 
     parametros_mergesort *param = (parametros_mergesort *) args;
     int Indicecomeco = param->Indicecomeco;
@@ -66,34 +67,32 @@ void *mergesort(void *args) {
         pthread_t thread1, thread2;
 
         if (numThread < MAX_THREADS) { // cria threads até o limite definido
-            pthread_create(&thread1, NULL, mergesort, &arg1);
+            pthread_create(&thread1, NULL, criaMerges, &arg1);
             numThread++;
-            pthread_join(thread1, NULL); // tira isso dps ------------------------------------------------
         } 
         else {
-            mergesort(&arg1); // Se ja estiver no limite, continua com a recursividade
+            mergesorte(Indicecomeco, meio, vetor); // Se ja estiver no limite, continua com a recursividade
         }
 
         if (numThread < MAX_THREADS) { // mesma coisa só q pra outra metade
-            pthread_create(&thread2, NULL, mergesort, &arg2);
+            pthread_create(&thread2, NULL, criaMerges, &arg2);
             numThread++;
-            pthread_join(thread2, NULL); // tira isso deps ----------------------------------------------
         } 
         else {
-            mergesort(&arg2);
+            mergesorte(meio, Indicefinal, vetor);
         }
 
         // Espera as threads terminarem
-
-        pthread_join(thread1, NULL);
-        pthread_join(thread2, NULL);
+        if (numThread > 0)
+        {
+            pthread_join(thread1, NULL); // ------------------------------------------------------------------- Erro de segmentação se não existir
+            pthread_join(thread2, NULL);
+        }
         
-
         // Intercala as duas metades
         intercala(Indicecomeco, meio, Indicefinal, vetor);
     }
 
-    numThread--;
     pthread_exit(NULL);
 }
 
@@ -126,4 +125,15 @@ void intercala (int Indicecomeco, int meio, int Indicefinal, int vetor[])
     }  
 
     free(vetorAUX);  
+}
+
+
+void mergesorte (int Indicecomeco, int Indicefinal, int vetor[])
+{
+   if (Indicecomeco < Indicefinal-1) {  // compara o começo com o final do vetor, enquanto forem diff, são cortados ao meio          
+      int meio = (Indicecomeco + Indicefinal)/2; // o valor será truncado se impar     
+      mergesorte (Indicecomeco, meio, vetor); //pega do começo ao meio      
+      mergesorte (meio, Indicefinal, vetor);  //pega do meio ao final   
+      intercala (Indicecomeco, meio, Indicefinal, vetor);     
+   }
 }

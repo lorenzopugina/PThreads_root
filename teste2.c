@@ -44,14 +44,13 @@ void mergesort (int Indicecomeco, int Indicefinal, int vetor[])
 
 int main()
 {
-    int v[6]={15, 8, 9, 3, 31, 4};
+    int v[7]={15, 8, 9, 3, 1, 4, 4};
 
-    mergesort(0, 6, v); // 0 é o começo, 6 é o numElementos, v é o vetor
+    mergesort(0, 7, v); // 0 é o começo, 6 é o numElementos, v é o vetor
 
-    for (int i = 0; i < 6; i++){
+    for (int i = 0; i < 7; i++){
         printf("%d ", v[i]);
     }
-
     printf("\n");
     
     return 0;
