@@ -8,7 +8,7 @@ int main() {
     
     srand(time(0));
 
-    FILE *arquivo = fopen("nums3.txt", "w+");
+    FILE *arquivo = fopen("nums1.txt", "w+");
     
    
     if (arquivo == NULL) {

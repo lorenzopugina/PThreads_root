@@ -2,7 +2,8 @@
     "files.associations": {
         "semaphore.h": "c",
         "anotações": "cpp",
-        "numbers": "c"
+        "numbers": "c",
+        "pthread.h": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

@@ -2,24 +2,24 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define MAX_THREADS 2 // Definir o número máximo de threads
+#define MAX_THREADS 4 // Definir o número máximo de threads
 
 typedef struct {
     int Indicecomeco;
     int Indicefinal;
     int *vetor;
+    int numThread
 } parametros_mergesort;
 
 void intercala(int Indicecomeco, int meio, int Indicefinal, int vetor[]);
 void *criaMerges(void *args);
 void mergesort (int Indicecomeco, int Indicefinal, int vetor[]);
 
-int numThread = 0;
 
 int main() {
 
     FILE* arquivo = fopen("teste.txt", "r");
-    int n = 10;
+    int n = 50;
 
     int* vetor = (int*)malloc(n * sizeof(int));
 
@@ -29,7 +29,7 @@ int main() {
     
     fclose(arquivo);
 
-    parametros_mergesort args = {0, n, vetor};
+    parametros_mergesort args = {0, n, vetor, 0};
 
     // Criação da primeira thread
     pthread_t threadInical;
@@ -56,32 +56,34 @@ void *criaMerges(void *args) {
     int Indicefinal = param->Indicefinal;
     int *vetor = param->vetor;
 
+    printf("NUmThread no começo da fun %d\n", param->numThread);
+
     if (Indicecomeco < Indicefinal - 1) {
         int meio = (Indicecomeco + Indicefinal) / 2;
 
         // Armazena os argumentos de cada metade do vetor
-        parametros_mergesort arg1 = {Indicecomeco, meio, vetor};
-        parametros_mergesort arg2 = {meio, Indicefinal, vetor};
+        parametros_mergesort arg1 = {Indicecomeco, meio, vetor, param->numThread};
+        parametros_mergesort arg2 = {meio, Indicefinal, vetor, param->numThread};
 
         // Criação de threads para cada metade do vetor
         pthread_t thread1, thread2; 
         int criouThread1 = 0, criouThread2 = 0; // local para cade thread enxergar se deve esperar ou não
 
-        if (numThread < MAX_THREADS - 1) { // cria threads até o limite definido (- 1 pois já tem uma thread quando chega aqui)
-            numThread++;
+        if (param->numThread < MAX_THREADS - 1) { // cria threads até o limite definido (- 1 pois já tem uma thread quando chega aqui)
+            arg1.numThread++; // Incrementa o contador para a primeira thread
             pthread_create(&thread1, NULL, criaMerges, &arg1);
+            printf("NUmThread no primeiro if %d\n", param->numThread);
             criouThread1 = 1;
-        } 
-        else {
+        } else {
             mergesort(Indicecomeco, meio, vetor); // Se já estiver no limite de threads, continua com a recursividade
         }
 
-        if (numThread < MAX_THREADS - 1) { // mesma coisa só que pra outra metade
-            numThread++;
+        if (param->numThread < MAX_THREADS - 1) { // Mesma coisa só q pra segunda metade
+            arg2.numThread++; // Incrementa o contador para a segunda thread
             pthread_create(&thread2, NULL, criaMerges, &arg2);
-            criouThread2 = 1; 
-        } 
-        else {
+            printf("NUmThread no segundo if %d\n", param->numThread);
+            criouThread2 = 1;
+        } else {
             mergesort(meio, Indicefinal, vetor);
         }
 
@@ -95,8 +97,14 @@ void *criaMerges(void *args) {
 
         // ordena e intercala as duas metades
         intercala(Indicecomeco, meio, Indicefinal, vetor);
+
+        if (param->numThread > 0)
+        {
+            param->numThread--;
+        }
+        printf("NUmThread no final %d\n", param->numThread);
     }
-    numThread--; // Fim da thread, libera para criação de outras
+     // Fim da thread, libera para criação de outras
     pthread_exit(NULL);
 }
 
