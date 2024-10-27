@@ -16,7 +16,7 @@ typedef struct {
     int Indicecomeco;
     int Indicefinal;
     int* vetor;
-    int numThread
+    int numThread;
 } parametrosMergesort;
 
 void* leitores(void* args);
