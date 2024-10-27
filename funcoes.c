@@ -2,86 +2,72 @@
 #include <stdlib.h>
 #include <pthread.h>
 
-#define MAX_THREADS 4 // Definir o número máximo de threads
-
-typedef struct {
-    int Indicecomeco;
-    int Indicefinal;
-    int *vetor;
-    int numThread
-} parametros_mergesort;
-
-void intercala(int Indicecomeco, int meio, int Indicefinal, int vetor[]);
-void *criaMerges(void *args);
-void mergesort (int Indicecomeco, int Indicefinal, int vetor[]);
+#include "funcoes.h"
 
 
-int main() {
+void* leitores(void* args) {
+    parametrosLeitura* param = (parametrosLeitura*)args;
+    int num;
 
-    FILE* arquivo = fopen("teste.txt", "r");
-    int n = 50;
+    while (fscanf(param->arquivo, "%d", &num) == 1) {
+        pthread_mutex_lock(param->mutex);
+        
+        // Verifica se precisa redimensionar o vetor
+        if (*param->numElementos >= *param->tamanho) {
+            realocar(param->vetor, param->tamanho);
+        }
 
-    int* vetor = (int*)malloc(n * sizeof(int));
-
-    for (int i = 0; i < n; i++){
-        fscanf(arquivo, "%d", &vetor[i]);
+        (*param->vetor)[(*param->numElementos)++] = num;
+        pthread_mutex_unlock(param->mutex);
     }
     
-    fclose(arquivo);
+    free(param);
 
-    parametros_mergesort args = {0, n, vetor, 0};
-
-    // Criação da primeira thread
-    pthread_t threadInical;
-    pthread_create(&threadInical, NULL, criaMerges, &args);
-
-    // Espera a thread principal terminar
-    pthread_join(threadInical, NULL);
-
-    // --------------------------------------------------------Imprime o vetor ordenado
-    for (int i = 0; i < n; i++) {
-        printf("%d ", vetor[i]);
-    }
-    printf("\n");
-
-    free(vetor);
-
-    return 0;
+    pthread_exit(NULL);
 }
 
-void *criaMerges(void *args) {
 
-    parametros_mergesort *param = (parametros_mergesort *) args;
+void realocar(int** vetor, int* capacidade) {
+    *capacidade += 50; //  repensar na matematica
+    int* novoVetor = realloc(*vetor, (*capacidade) * sizeof(int));
+    
+    if (novoVetor == NULL) {          // tirar dps ------------------------------------------
+        printf("Erro ao realocar memória\n");
+    }
+
+     *vetor = novoVetor; // Atualiza o ponteiro do vetor
+
+}
+
+void *criaMerges(void* args) {
+
+    parametrosMergesort* param = (parametrosMergesort*) args;
     int Indicecomeco = param->Indicecomeco;
     int Indicefinal = param->Indicefinal;
     int *vetor = param->vetor;
-
-    printf("NUmThread no começo da fun %d\n", param->numThread);
 
     if (Indicecomeco < Indicefinal - 1) {
         int meio = (Indicecomeco + Indicefinal) / 2;
 
         // Armazena os argumentos de cada metade do vetor
-        parametros_mergesort arg1 = {Indicecomeco, meio, vetor, param->numThread};
-        parametros_mergesort arg2 = {meio, Indicefinal, vetor, param->numThread};
+        parametrosMergesort arg1 = {Indicecomeco, meio, vetor, param->numThread};
+        parametrosMergesort arg2 = {meio, Indicefinal, vetor, param->numThread};
 
         // Criação de threads para cada metade do vetor
         pthread_t thread1, thread2; 
         int criouThread1 = 0, criouThread2 = 0; // local para cade thread enxergar se deve esperar ou não
 
-        if (param->numThread < MAX_THREADS - 1) { // cria threads até o limite definido (- 1 pois já tem uma thread quando chega aqui)
+        if (param->numThread < (maxThreads - 1)) { // cria threads até o limite definido (- 1 pois já tem uma thread quando chega aqui)
             arg1.numThread++; // Incrementa o contador para a primeira thread
             pthread_create(&thread1, NULL, criaMerges, &arg1);
-            printf("NUmThread no primeiro if %d\n", param->numThread);
             criouThread1 = 1;
         } else {
             mergesort(Indicecomeco, meio, vetor); // Se já estiver no limite de threads, continua com a recursividade
         }
 
-        if (param->numThread < MAX_THREADS - 1) { // Mesma coisa só q pra segunda metade
+        if (param->numThread < (maxThreads - 1)) { // Mesma coisa só q pra segunda metade
             arg2.numThread++; // Incrementa o contador para a segunda thread
             pthread_create(&thread2, NULL, criaMerges, &arg2);
-            printf("NUmThread no segundo if %d\n", param->numThread);
             criouThread2 = 1;
         } else {
             mergesort(meio, Indicefinal, vetor);
@@ -98,11 +84,9 @@ void *criaMerges(void *args) {
         // ordena e intercala as duas metades
         intercala(Indicecomeco, meio, Indicefinal, vetor);
 
-        if (param->numThread > 0)
-        {
+        if (param->numThread > 0){
             param->numThread--;
         }
-        printf("NUmThread no final %d\n", param->numThread);
     }
      // Fim da thread, libera para criação de outras
     pthread_exit(NULL);
@@ -148,5 +132,3 @@ void intercala (int Indicecomeco, int meio, int Indicefinal, int vetor[])
 
     free(vetorAUX);  
 }
-
-
