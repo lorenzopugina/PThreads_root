@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 
 // #include "funcoes.h"
 
 typedef struct {
     FILE* arquivo;
-    int** vetor; // ponteiro de ponteiro pra dps poder realocar o tamanho
+    int** vetor; 
     int* numElementos;
     int* tamanho;
     pthread_mutex_t* mutex;
@@ -20,30 +21,34 @@ typedef struct {
 } parametrosMergesort;
 
 void* leitores(void* args);
-void realocar(int** vetor, int* capacidade); 
+void redimensionar(int** vetor, int* capacidade); 
 void intercala(int Indicecomeco, int meio, int Indicefinal, int vetor[]);
 void* criaMerges(void* args);
 void mergesort (int Indicecomeco, int Indicefinal, int vetor[]);
+void imprimeSaida(int* vetor, int tamanho, char* arquivo);
 
 int maxThreads;
 
 int main(int argc, char const* argv[]) {
 
     maxThreads = atoi(argv[1]); // ascii to integer
-    pthread_t* threads = (pthread_t*)malloc(maxThreads * sizeof(pthread_t)); // Aloca um vetor de threads
+    pthread_t* threads = (pthread_t*)malloc(maxThreads * sizeof(pthread_t)); // Aloca um vetor de threads   ----------------------- VERIFICA NULL?
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
     int tamanho = 20 * (argc - 3);
-    int* vetorPrincipal = (int*)malloc(tamanho * sizeof(int)); // vetor de 20 elementos para cada arquivo a ler
+    int* vetorPrincipal = (int*)malloc(tamanho * sizeof(int)); // Aloc um vetor inicial de 20 elementos para cada arquivo a ler ----------- NULL?
     int numElementos = 0;
  
      for (int j = 2; j < argc-1; j++){ // para cada arquivo a ser lido
 
         FILE* arquivo = fopen(argv[j], "r");  // arquivo da vez
-        if (arquivo == NULL) printf("Não abriu o arquivo"); // tirar dps
+        if (arquivo == NULL){
+             printf("Não abriu o arquivo para leitura");
+             return 1;
+        }
 
         for (int i = 0; i < maxThreads; i++) {
-            parametrosLeitura* args = (parametrosLeitura*)malloc(sizeof(parametrosLeitura));
+            parametrosLeitura* args = (parametrosLeitura*)malloc(sizeof(parametrosLeitura)); // ----------------------------VERIFICA NULL?
             args->arquivo = arquivo; 
             args->vetor = &vetorPrincipal;
             args->numElementos = &numElementos;
@@ -60,32 +65,19 @@ int main(int argc, char const* argv[]) {
         fclose(arquivo);
     }
 
-    parametrosMergesort args = {0, numElementos, vetorPrincipal, 0}; // parametros para a primeira thread mergesort
-
-    // Criação da primeira thread
+    // Criação da primeira thread merge
+    parametrosMergesort args = {0, numElementos, vetorPrincipal, 1}; // 1 pois será a primeira thread
     pthread_t threadInical;
     pthread_create(&threadInical, NULL, criaMerges, &args);
 
-    // Espera a thread principal terminar
+    // Espera a thread principal terminar ----------------------------------------------------------------------------------REVER------
     pthread_join(threadInical, NULL);
 
-    // imprimir no arquivo de saida ------------------------------------ fazer como função dps e adicionar no cabeçalho
-    FILE* saida = fopen(argv[argc-1], "w+");
-    int quebraLinha = 0;
+    imprimeSaida(vetorPrincipal, numElementos, strdup(argv[argc-1]));
 
-    for (int i = 0; i < numElementos; i++) { 
-        quebraLinha++;
-        fprintf(saida, "%d ", vetorPrincipal[i]);
-
-        if (quebraLinha == 25){
-            fprintf(saida, "\n");
-            quebraLinha = 0;
-        }
-    }
-
-    fclose(saida);
-    free(vetorPrincipal); // nao esquecer dele dps
+    free(vetorPrincipal);
     free(threads);
+
     return 0;
 }
 
@@ -94,33 +86,31 @@ void* leitores(void* args) {
     int num;
 
     while (fscanf(param->arquivo, "%d", &num) == 1) {
-        pthread_mutex_lock(param->mutex);
+        pthread_mutex_lock(param->mutex); // ---------------------------------------------------------------------------------- REVER
         
         // Verifica se precisa redimensionar o vetor
         if (*param->numElementos >= *param->tamanho) {
-            realocar(param->vetor, param->tamanho);
+            redimensionar(param->vetor, param->tamanho);
         }
 
         (*param->vetor)[(*param->numElementos)++] = num;
         pthread_mutex_unlock(param->mutex);
     }
     
-    free(param);
-
+    free(param); // necessário pois foi alocada memoria
     pthread_exit(NULL);
 }
 
+void redimensionar(int** vetor, int* capacidade) {
+    *capacidade += 50; 
 
-void realocar(int** vetor, int* capacidade) {
-    *capacidade += 50; //  repensar na matematica
-    int* novoVetor = realloc(*vetor, (*capacidade) * sizeof(int));
-    
-    if (novoVetor == NULL) {          // tirar dps ------------------------------------------
-        printf("Erro ao realocar memória\n");
+    int* vetorAux = realloc(*vetor, (*capacidade) * sizeof(int)); 
+    if (vetorAux == NULL) {
+        printf("Realocação falhou\n");
+        return; 
     }
 
-     *vetor = novoVetor; // Atualiza o ponteiro do vetor
-
+     *vetor = vetorAux; 
 }
 
 void *criaMerges(void* args) {
@@ -128,29 +118,34 @@ void *criaMerges(void* args) {
     parametrosMergesort* param = (parametrosMergesort*) args;
     int Indicecomeco = param->Indicecomeco;
     int Indicefinal = param->Indicefinal;
-    int *vetor = param->vetor;
+    int* vetor = param->vetor;
 
-    if (Indicecomeco < Indicefinal - 1) {
-        int meio = (Indicecomeco + Indicefinal) / 2;
+    // Enquanto o vetor for maior que 1, será divido ao meio
+    if (Indicecomeco < Indicefinal - 1) { 
+        int meio = (Indicecomeco + Indicefinal) / 2; 
 
-        // Armazena os argumentos de cada metade do vetor
+
         parametrosMergesort arg1 = {Indicecomeco, meio, vetor, param->numThread};
         parametrosMergesort arg2 = {meio, Indicefinal, vetor, param->numThread};
 
         // Criação de threads para cada metade do vetor
         pthread_t thread1, thread2; 
-        int criouThread1 = 0, criouThread2 = 0; // local para cade thread enxergar se deve esperar ou não
+        int criouThread1 = 0, criouThread2 = 0; 
 
-        if (param->numThread < (maxThreads - 1)) { // cria threads até o limite definido (- 1 pois já tem uma thread quando chega aqui)
-            arg1.numThread++; // Incrementa o contador para a primeira thread
+
+        if (param->numThread < maxThreads) { // cada thread recebe metade do vetor
+            arg1.numThread++;               // -------------------------------------------------------------------------------MUTEX?
+            arg2.numThread++; 
             pthread_create(&thread1, NULL, criaMerges, &arg1);
             criouThread1 = 1;
         } else {
             mergesort(Indicecomeco, meio, vetor); // Se já estiver no limite de threads, continua com a recursividade
         }
 
-        if (param->numThread < (maxThreads - 1)) { // Mesma coisa só q pra segunda metade
-            arg2.numThread++; // Incrementa o contador para a segunda thread
+         // O mesmo processo para a segunda metade do vetor
+        if (param->numThread < maxThreads) { 
+            arg1.numThread++;               // -------------------------------------------------------------------------------MUTEX?
+            arg2.numThread++; 
             pthread_create(&thread2, NULL, criaMerges, &arg2);
             criouThread2 = 1;
         } else {
@@ -165,43 +160,48 @@ void *criaMerges(void* args) {
             pthread_join(thread2, NULL);
         }
 
-        // ordena e intercala as duas metades
+        // ordena e mescla as metades
         intercala(Indicecomeco, meio, Indicefinal, vetor);
 
         if (param->numThread > 0){
-            param->numThread--;
+            param->numThread--;    // -----------------------------------------------------------------------------------------MUTEX?
         }
     }
-     // Fim da thread, libera para criação de outras
+     
     pthread_exit(NULL);
 }
 
 
-void mergesort (int Indicecomeco, int Indicefinal, int vetor[])
-{
-   if (Indicecomeco < Indicefinal-1) {  // compara o começo com o final do vetor, enquanto forem diff, são cortados ao meio          
-      int meio = (Indicecomeco + Indicefinal)/2; // o valor será truncado se impar     
-      mergesort (Indicecomeco, meio, vetor); //pega do começo ao meio      
-      mergesort (meio, Indicefinal, vetor);  //pega do meio ao final   
-      intercala (Indicecomeco, meio, Indicefinal, vetor);     
-   }
+void mergesort (int Indicecomeco, int Indicefinal, int vetor[]){
+
+    // Enquanto o vetor for maior que 1, será divido ao meio  
+    if (Indicecomeco < (Indicefinal-1)) {        
+      int meio = (Indicecomeco + Indicefinal)/2; 
+      mergesort (Indicecomeco, meio, vetor);     
+      mergesort (meio, Indicefinal, vetor);  
+
+      // ordena e mescla as metades
+      intercala (Indicecomeco, meio, Indicefinal, vetor); 
+    }
 }
 
 void intercala (int Indicecomeco, int meio, int Indicefinal, int vetor[]) 
 {
-    int* vetorAUX = (int*)malloc((Indicefinal-Indicecomeco) * sizeof (int));  
+    int* vetorAUX = (int*)malloc((Indicefinal-Indicecomeco) * sizeof (int));  // -------------------------------------------------- NULL?
     int comeco = Indicecomeco;
     int metade = meio;  
     int contador = 0;  
 
-    while (comeco < meio && metade < Indicefinal) {  // repete o laço até o fim das metades
-        if (vetor[comeco] <= vetor[metade]){          
-              vetorAUX[contador++] = vetor[comeco++];  // Se o elemento da primeira parte do vetor for menor, ele vai pro começo
+    // repete o laço até o fim das metades
+    while (comeco < meio && metade < Indicefinal) { 
+
+        if (vetor[comeco] <= vetor[metade]){          // Compara os elementos de cada metade, o menor vai pro começo do vetor
+              vetorAUX[contador++] = vetor[comeco++];  
         }
-        else  vetorAUX[contador++] = vetor[metade++];  // Se n é o elemento da segunda metade
+        else  vetorAUX[contador++] = vetor[metade++];  
     }  
 
-    // Pode sobrar elementos, como estão no final do vetor eles ja são maiores, portanto só são copiados
+    // Copia os elementos que sobraram. Como estão no final do vetor, são os maiores
     while (comeco < meio){
           vetorAUX[contador++] = vetor[comeco++]; 
     }
@@ -215,4 +215,28 @@ void intercala (int Indicecomeco, int meio, int Indicefinal, int vetor[])
     }  
 
     free(vetorAUX);  
+}
+
+void imprimeSaida(int* vetor, int tamanho, char* arquivo){
+    int quebraLinha = 0;
+
+    FILE* saida = fopen(arquivo, "w+");
+    if (saida == NULL){
+        printf("Não abriu o arquivo para escrita");
+        free(arquivo);
+        return;
+    }
+
+    for (int i = 0; i < tamanho; i++) { 
+        quebraLinha++;
+        fprintf(saida, "%d ", vetor[i]);
+
+        if (quebraLinha == 25){
+            fprintf(saida, "\n");
+            quebraLinha = 0;
+        }
+    }
+
+    fclose(saida);
+    free(arquivo);
 }
