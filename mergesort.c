@@ -5,8 +5,6 @@
 #include <semaphore.h>
 #include <time.h>
 
-// #include "funcoes.h"
-
 typedef struct {
     FILE* arquivo;
     int** vetor; 
@@ -42,7 +40,7 @@ int main(int argc, char const* argv[]){
         return 1;
     }
     
-    sem_t semaforoLeitura;          // ------------------------------------------------------------------------------- SEMAFORO OU MUTEX?
+    sem_t semaforoLeitura;         
     sem_init(&semaforoLeitura, 0, 1);
 
     int tamanho = 20 * (argc - 3);
@@ -54,7 +52,7 @@ int main(int argc, char const* argv[]){
 
     int numElementos = 0;
  
-     for (int j = 2; j < argc-1; j++){ // para cada arquivo a ser lido
+     for (int j = 2; j < argc-2; j++){ // para cada arquivo a ser lido
 
         FILE* arquivo = fopen(argv[j], "r");  // arquivo da vez
         if (arquivo == NULL){
@@ -95,13 +93,14 @@ int main(int argc, char const* argv[]){
     clock_t inicio = clock(); // aqui -----------------------------------------------------
     pthread_create(&threadInical, NULL, criaMerges, &args); 
 
-    // Espera a thread principal terminar ----------------------------------------------------------------------------------REVER------
+    // Espera a thread principal terminar 
     pthread_join(threadInical, NULL);
+    sem_destroy(&semaforoMerge); 
     clock_t fim = clock();
     double tempoExecucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
     printf("Tempo total de execução: %f segundos\n", tempoExecucao); // aqui ------------------------------------
 
-    sem_destroy(&semaforoMerge); 
+    
 
     imprimeSaida(vetorPrincipal, numElementos, strdup(argv[argc-1]));
 
@@ -146,7 +145,6 @@ void redimensionar(int** vetor, int* capacidade){
 
 void* criaMerges(void* args){
     clock_t inicio = clock(); // aqui-----------------------------------------
-    contador++;
 
     parametrosMergesort* param = (parametrosMergesort*) args;
     int Indicecomeco = param->Indicecomeco;
@@ -203,7 +201,10 @@ void* criaMerges(void* args){
     
     clock_t fim = clock(); // ---------------------------------------
     double tempoExecucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
-    printf("Tempo de execução da thread %d: %f segundos\n", contador, tempoExecucao);
+
+    sem_wait(param->semaforoMerge); // down
+    printf("Tempo de execução da thread %d: %f segundos\n", contador++, tempoExecucao);
+    sem_post(param->semaforoMerge); // up
 
     pthread_exit(NULL);
 }
