@@ -28,12 +28,13 @@ void mergesort (int Indicecomeco, int Indicefinal, int vetor[]);
 void imprimeSaida(int* vetor, int tamanho, char* arquivo);
 
 int maxThreads;
-int numeroAtualThread = 1;
 int contador = 0;
 
 int main(int argc, char const* argv[]){
 
     maxThreads = atoi(argv[1]); // ascii to integer
+    contador = maxThreads;
+
     pthread_t* threads = (pthread_t*)malloc(maxThreads * sizeof(pthread_t)); // Aloca um vetor de threads   
     if (threads == NULL){
         printf("Alocação para threads falhou\n");
@@ -90,17 +91,17 @@ int main(int argc, char const* argv[]){
     parametrosMergesort args = {0, numElementos, vetorPrincipal, &semaforoMerge}; 
     pthread_t threadInical;
 
-    clock_t inicio = clock(); // aqui -----------------------------------------------------
+    clock_t inicio = clock(); 
+
     pthread_create(&threadInical, NULL, criaMerges, &args); 
 
     // Espera a thread principal terminar 
     pthread_join(threadInical, NULL);
     sem_destroy(&semaforoMerge); 
+
     clock_t fim = clock();
     double tempoExecucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
-    printf("Tempo total de execução: %f segundos\n", tempoExecucao); // aqui ------------------------------------
-
-    
+    printf("Tempo total de execução: %f segundos\n", tempoExecucao); 
 
     imprimeSaida(vetorPrincipal, numElementos, strdup(argv[argc-1]));
 
@@ -144,7 +145,7 @@ void redimensionar(int** vetor, int* capacidade){
 }
 
 void* criaMerges(void* args){
-    clock_t inicio = clock(); // aqui-----------------------------------------
+    clock_t inicio = clock(); 
 
     parametrosMergesort* param = (parametrosMergesort*) args;
     int Indicecomeco = param->Indicecomeco;
@@ -163,8 +164,8 @@ void* criaMerges(void* args){
 
         sem_wait(param->semaforoMerge); // down
 
-        if (numeroAtualThread < maxThreads) { // Cada thread recebe metade do vetor
-            numeroAtualThread++;
+        if (maxThreads > 1) { // Cada thread recebe metade do vetor
+            maxThreads--;
             sem_post(param->semaforoMerge); // up
 
             pthread_create(&thread1, NULL, criaMerges, &arg1);
@@ -176,8 +177,8 @@ void* criaMerges(void* args){
 
         sem_wait(param->semaforoMerge); // down
          // O mesmo processo para a segunda metade do vetor
-        if (numeroAtualThread < maxThreads) { 
-            numeroAtualThread++;
+        if (maxThreads > 1) { 
+            maxThreads--;
              sem_post(param->semaforoMerge); // up
 
             pthread_create(&thread2, NULL, criaMerges, &arg2);
@@ -199,11 +200,11 @@ void* criaMerges(void* args){
         intercala(Indicecomeco, meio, Indicefinal, vetor);
     }
     
-    clock_t fim = clock(); // ---------------------------------------
+    clock_t fim = clock();
     double tempoExecucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
 
     sem_wait(param->semaforoMerge); // down
-    printf("Tempo de execução da thread %d: %f segundos\n", contador++, tempoExecucao);
+    printf("Tempo de execução da thread %d: %f segundos\n", contador--, tempoExecucao);
     sem_post(param->semaforoMerge); // up
 
     pthread_exit(NULL);
