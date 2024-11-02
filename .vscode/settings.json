@@ -3,7 +3,8 @@
         "semaphore.h": "c",
         "anotações": "cpp",
         "numbers": "c",
-        "pthread.h": "c"
+        "pthread.h": "c",
+        "concepts": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }
