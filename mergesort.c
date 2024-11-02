@@ -17,6 +17,7 @@ typedef struct {
     int Indicecomeco;
     int Indicefinal;
     int* vetor;
+    double* tempoExecucao;
 } parametrosMergesort;
 
 void* leitores(void* args);
@@ -25,17 +26,14 @@ void* criaMerges(void* args);
 void mergesort (int Indicecomeco, int Indicefinal, int* vetor);
 void imprimeSaida(int* vetor, int tamanho, char* arquivo);
 
-int maxThreads;
-int contador;
-
 int main(int argc, char const* argv[]){
 
     if (argc == 1){
         return 0;
     }
     
-    maxThreads = atoi(argv[1]); // ascii to integer
-    contador = maxThreads;
+    int maxThreads = atoi(argv[1]); // ascii to integer
+    int maxThreadsCopia = maxThreads;
 
     sem_t semaforoLeitura;         
     sem_init(&semaforoLeitura, 0, 1);
@@ -70,34 +68,53 @@ int main(int argc, char const* argv[]){
     free(threads);
     free(leitura);
     
-    pthread_t* threadsMerge = (pthread_t*)malloc(maxThreads * sizeof(pthread_t)); // Aloca um vetor de threads 
-    parametrosMergesort* merge = malloc(maxThreads * sizeof(parametrosMergesort));
+    double* tempoExecucao = (double*)malloc(maxThreads * sizeof(double));
+
+    while (maxThreads/2 > 0){
+        pthread_t* threadsMerge = (pthread_t*)malloc(maxThreads * sizeof(pthread_t)); // Aloca um vetor de threads 
+        parametrosMergesort* merge = malloc(maxThreads * sizeof(parametrosMergesort));
+        
+        int elementosPorThread = numElementos / maxThreads;
+        int resto = numElementos % maxThreads;
+        int indiceComeço = 0;
+
+        for (int i = 0; i < maxThreads; i++) {
+            merge[i].vetor = vetorPrincipal; 
+            merge[i].Indicefinal = indiceComeço + elementosPorThread + (i < resto ? 1 : 0); // Distribui o resto
+            merge[i].Indicecomeco = indiceComeço;
+            merge[i].tempoExecucao = &tempoExecucao[i];
+            //-----------------------------------------------------------------------------------------------------------------------Cronometro?
+            pthread_create(&threadsMerge[i], NULL, criaMerges, &merge[i]);
+            indiceComeço =  merge[i].Indicefinal;
+        }
+
+        for (int i = 0; i < maxThreads; i++) {
+            pthread_join(threadsMerge[i], NULL);
+        }
+        //--------------------------------------------------------------------------------------------------------------------- fim cornometro?
+        for (int i = 0; i < maxThreads; i++){
+            tempoExecucao[i] = *merge[i].tempoExecucao; // salva os tempos de execução
+        }
+        
+        free(merge);
+        free(threadsMerge);
+
+        maxThreads = maxThreads/2;
+    } 
     
-    int elementosPorThread = numElementos / maxThreads;
-    int resto = numElementos % maxThreads;
-    int indiceComeço = 0;
-
-    for (int i = 0; i < maxThreads; i++) {
-        merge[i].vetor = vetorPrincipal; 
-        merge[i].Indicefinal = indiceComeço + elementosPorThread + (i < resto ? 1 : 0); // Distribui o resto
-        merge[i].Indicecomeco = indiceComeço;
-
-        pthread_create(&threadsMerge[i], NULL, criaMerges, &merge[i]);
-        indiceComeço =  merge[i].Indicefinal;
-    }
-
-    for (int i = 0; i < maxThreads; i++) {
-        pthread_join(threadsMerge[i], NULL);
-    }
-
-    // mergesort final
-    mergesort(0, numElementos, vetorPrincipal);  
+    pthread_t mergeFInal;
+    parametrosMergesort mergesortFinal = {0, numElementos, vetorPrincipal, &tempoExecucao[0]};
+    pthread_create(&mergeFInal, NULL, criaMerges, &mergesortFinal);
 
     imprimeSaida(vetorPrincipal, numElementos, strdup(argv[argc-1]));
 
+    for (int i = 0; i < maxThreadsCopia; i++){
+        printf("Tempo total de execução da thread %d foi de: %f\n", i, tempoExecucao[i]);
+    }
+
+    //---------------------------------------------------------Imprimir tempo total
     free(vetorPrincipal);
-    free(merge);
-    free(threadsMerge);
+
 
     return 0;
 }
@@ -121,7 +138,7 @@ void* leitores(void* args){
 }
 
 void* criaMerges(void* args) {
-    clock_t inicio = clock(); // aqui -------------------------------
+    clock_t inicio = clock(); 
 
     parametrosMergesort* param = (parametrosMergesort*) args;
     int Indicecomeco = param->Indicecomeco;
@@ -129,15 +146,14 @@ void* criaMerges(void* args) {
 
     if (Indicecomeco < Indicefinal - 1) {
         int meio = (Indicecomeco + Indicefinal) / 2;
-        mergesort(Indicecomeco, meio, param->vetor); 
+        mergesort(Indicecomeco, meio, param->vetor);  //------------------------------------------AUto recursividade funciona mas com warning
         mergesort(meio, Indicefinal, param->vetor);  
  
         intercala(Indicecomeco, meio, Indicefinal, param->vetor);
     }
 
     clock_t fim = clock();
-    double tempoExecucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
-    printf("Tempo total de execução da thread %d foi de: %f segundos\n", contador--, tempoExecucao);
+    *param->tempoExecucao = (double)(fim - inicio) / CLOCKS_PER_SEC;
 
     pthread_exit(NULL);
 }
