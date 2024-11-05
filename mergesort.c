@@ -84,7 +84,7 @@ int main(int argc, char const* argv[]){
         for (int i = 0; i < maxThreads; i++) {
             merge[i].vetor = vetorPrincipal; 
             merge[i].Indicecomeco = indiceComeço;
-            merge[i].Indicefinal = indiceComeço + elementosPorThread + (i < resto ? 1 : 0); // Distribui o resto da melhor maneira
+            merge[i].Indicefinal = indiceComeço + elementosPorThread + (i < resto ? 1 : 0); // Adiciona 1 elemento ao final se i for menor que resto
             merge[i].tempoExecucao = &tempoThread[i];
             
             pthread_create(&threadsMerge[i], NULL, criaMerges, &merge[i]);

@@ -1,3 +1,0 @@
-Exemplo de compilação
-
-gcc main.c minhas_funcoes.c -o programa -lpthread
