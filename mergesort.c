@@ -5,6 +5,8 @@
 #include <semaphore.h>
 #include <time.h>
 
+//Inspirado no código de exemplo do prof Paulo Feofiloff, disponivel em <https://www.ime.usp.br/~pf/algoritmos/aulas/mrgsrt.html>
+
 typedef struct {
     FILE* arquivo;
     int** vetor; 
